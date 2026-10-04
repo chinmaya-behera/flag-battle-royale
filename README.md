@@ -4,6 +4,12 @@ A browser game inspired by the supplied Flag Battle Royale HTML. Choose a random
 
 Open **Flag Battle Royale.html** directly for a completely offline, single-file edition. The `dist` folder is the web edition.
 
+[Play the hosted game](https://flag-battle-royale-physics.gamingslayer20.chatgpt.site) (private owner access).
+
+![Automatic world tournament](preview.jpg)
+
+For a local browser preview, run `python -m http.server 8765 --bind 127.0.0.1 --directory dist` from this folder, then open `http://127.0.0.1:8765/`.
+
 ## Controls
 
 - Start / pause: Space, or the main button.

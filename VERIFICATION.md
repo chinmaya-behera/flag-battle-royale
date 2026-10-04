@@ -9,4 +9,4 @@
 - Browser console reported no errors after the texture optimization.
 - All three optional page tools registered. Valid configure/start/read actions updated the shared UI state; invalid country codes failed intentionally.
 - The offline export embeds all code and 250 SVG flag assets and includes their MIT license.
-- The original private hosting upload was blocked by expired service credentials. The tournament update retries publication using refreshed credentials; only a successful deployment result confirms a live hosted version.
+- The tournament version was successfully published privately at https://flag-battle-royale-physics.gamingslayer20.chatgpt.site. Deployment success was confirmed by the hosting service.

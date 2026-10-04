@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+*.pyc
+.sites-runtime/
+.env
+.env.*
+!.env.example
+*-deploy.tar.gz
