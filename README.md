@@ -36,3 +36,7 @@ Includes 249 ISO country and territory flags plus Kosovo (250). Flag artwork and
 ## Validation and export
 
 Run `node --test tests/physics.test.cjs` for collision, gap, stability, and frame-rate checks. Run `python tools/export_standalone.py` after changing the web edition to refresh the offline file. `tools/prepare_flags.py` refreshes the bundled flags and requires a network connection.
+
+## Vercel deployment
+
+Import this repository into Vercel with framework preset **Other** and the repository root as the root directory. The committed `vercel.json` publishes `dist` directly, with no install or build step. No environment variables are required. A connected GitHub project redeploys when changes are pushed to `main`.
