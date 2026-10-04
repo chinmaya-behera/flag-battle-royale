@@ -10,3 +10,4 @@
 - All three optional page tools registered. Valid configure/start/read actions updated the shared UI state; invalid country codes failed intentionally.
 - The offline export embeds all code and 250 SVG flag assets and includes their MIT license.
 - The tournament version was successfully published privately at https://flag-battle-royale-physics.gamingslayer20.chatgpt.site. Deployment success was confirmed by the hosting service.
+- Vercel production deployment is Ready at https://flag-battle-royale-bay.vercel.app. Unauthenticated requests for `/`, `style.css`, `physics.js`, `app.js`, and `countries.js` returned HTTP 200, and each response matched its tested source file by SHA-256. The GitHub repository is connected for automatic deployments from `main`.

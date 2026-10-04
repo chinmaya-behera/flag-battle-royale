@@ -4,7 +4,7 @@ A browser game inspired by the supplied Flag Battle Royale HTML. Choose a random
 
 Open **Flag Battle Royale.html** directly for a completely offline, single-file edition. The `dist` folder is the web edition.
 
-[Play the hosted game](https://flag-battle-royale-physics.gamingslayer20.chatgpt.site) (private owner access).
+[Play the game on Vercel](https://flag-battle-royale-bay.vercel.app).
 
 ![Automatic world tournament](preview.jpg)
 
