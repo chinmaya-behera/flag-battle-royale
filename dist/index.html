@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c100f">
+  <meta name="description" content="A flag battle royale with particle cloth, physical collisions, and your own custom world lineup.">
+  <title>Flag Battle Royale — Physics Playground</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230c100f'/%3E%3Cpath d='M12 31V9h18l-5 7 5 7H14' fill='%23c7f36b' stroke='%23c7f36b' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script src="countries.js" defer></script>
+  <script src="physics.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="#" aria-label="Flag Battle Royale home"><svg viewBox="0 0 30 30" aria-hidden="true"><path d="M7 25V5m1 1h16l-5 6 5 6H8"/></svg>FLAG<span>LAB</span><span class="brand-divider"></span><span class="brand-sub">PHYSICS PLAYGROUND</span></a>
+  <div class="header-meta"><span class="live-dot"></span> ONE ARENA. ONE SURVIVOR. <button class="icon-button" id="help" aria-label="How to play">?</button></div>
+</header>
+<main>
+  <section class="intro"><div><div class="eyebrow"><span></span> THE WORLD IS YOUR ARENA</div><h1>Flag battle <em>royale.</em></h1><p>Pick your nations. Unleash the chaos. May the last flag win.</p></div><div class="edition"><span class="edition-symbol">✳</span><div>PARTICLE PHYSICS<span>GRAVITY · COLLISIONS · CLOTH</span></div></div></section>
+  <div class="game-layout">
+    <aside class="setup panel">
+      <div class="section-heading"><h2>Battle setup</h2><span class="small-label">01 / CONFIGURE</span></div>
+      <div class="field-heading"><label for="battle-size">Starting lineup</label><span id="size-badge">16 FLAGS</span></div>
+      <div class="lineup-control"><select id="battle-size" aria-label="Number of random flags"><option value="8">8 flags</option><option value="16" selected>16 flags</option><option value="32">32 flags</option><option value="64">64 flags</option><option value="128">128 flags</option><option value="250">Whole world · 250</option></select><button id="shuffle" class="icon-button" aria-label="Shuffle flags">⇄</button></div>
+      <div class="selected-preview" id="selected-preview"></div>
+      <button class="custom-button" id="custom-flags"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14M6 3v4m8 1v4m-7 1v4"/></svg>Choose your flags<span>↗</span></button>
+      <div class="divider"></div>
+      <div class="section-heading"><h2>Physics</h2><span class="physics-dot"></span></div>
+      <div class="slider-field"><div><label for="gravity">Gravity</label><output id="gravity-value">Earth</output></div><input id="gravity" type="range" min="0" max="400" value="210" step="10"><div class="range-caption"><span>Zero-G</span><span>Heavy</span></div></div>
+      <div class="slider-field"><div><label for="bounce">Perfectly elastic</label><output id="bounce-value">100% · forever</output></div><input id="bounce" type="range" min="20" max="100" value="100" disabled><div class="range-caption"><span>No friction or drag</span><span>No energy loss</span></div></div>
+      <div class="slider-field"><div><label for="speed">Simulation speed</label><output id="speed-value">1×</output></div><input id="speed" type="range" min="25" max="300" value="100" step="25"></div>
+      <label class="toggle-row">Impact particles<input id="particles" type="checkbox" checked><span class="switch"></span></label>
+      <label class="toggle-row">Show particle mesh<input id="mesh" type="checkbox"><span class="switch"></span></label>
+      <div class="elastic-note">∞ &nbsp; No collision damage. Flags keep bouncing.</div>
+      <button class="start-button" id="start"><span id="start-symbol">▶</span><span id="start-label">Start battle</span><kbd>SPACE</kbd></button>
+      <button class="reset-button" id="reset">↻ &nbsp; New arena</button>
+    </aside>
+    <section class="arena-panel panel" aria-label="Battle arena">
+      <div class="arena-top"><div class="status" id="status"><span></span> READY TO BATTLE</div><div class="arena-tools"><button id="sound" class="icon-button" aria-label="Enable sound" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M3 7h4l5-4v14l-5-4H3zm12 0 4 6m0-6-4 6"/></svg></button><button id="fullscreen" class="icon-button" aria-label="Fullscreen arena"><svg viewBox="0 0 20 20"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m6 0h4v-4"/></svg></button></div></div>
+      <div id="tournament-banner" class="tournament-banner" hidden><div class="round-heading"><strong id="round-label">ROUND 1/8</strong><span id="round-target">QUALIFY TOP 128</span><span id="round-duration">35–50s ROUND</span></div><div id="round-path" class="round-path"></div><p>Gap exits are paced. At the buzzer, center-most flags fill remaining places.</p></div>
+      <div class="arena-stage" id="arena-stage"><canvas id="arena" width="720" height="720" aria-label="Flags moving and colliding inside a circular arena"></canvas><div class="arena-center-hint" id="arena-hint"><span>THE STAGE IS SET</span><strong>Let the world collide.</strong></div><div class="winner-overlay" id="winner" hidden><div class="winner-card"><span class="eyebrow">LAST FLAG STANDING</span><img id="winner-flag" alt=""><h2 id="winner-name"></h2><p id="winner-copy"></p><button id="play-again" class="start-button">↻ &nbsp; Battle again</button></div></div><div class="arena-tooltip" id="tooltip" hidden></div></div>
+      <div id="round-progress" class="round-progress" hidden><i id="round-progress-fill"></i></div>
+      <div class="arena-bottom"><span><i class="lime-dot"></i><b id="alive">16</b> flags remaining</span><span><i class="gap-dot"></i><span id="exit-label">ROTATING EXIT GAP</span></span><span class="clock" id="timer">00:00</span></div>
+    </section>
+    <aside class="activity panel"><div class="section-heading"><h2>Battle feed</h2><span class="small-label" id="out-count">0 OUT</span></div><div class="feed" id="feed" role="log" aria-live="polite" aria-relevant="additions"><div class="feed-empty"><svg viewBox="0 0 48 48"><path d="m27 5-16 23h11l-1 15 16-23H26z"/></svg><strong>Quiet before the chaos.</strong><p>Eliminations and big moments<br>will appear here.</p></div></div><div class="survivors-heading"><h3>In the arena</h3><span id="roster-count">16</span></div><div class="roster" id="roster"></div></aside>
+  </div>
+  <footer><span><span class="footer-mark">✳</span> A LITTLE PHYSICS. A LOT OF CHAOS.</span><span>Cloth particles &nbsp;/&nbsp; Elastic collisions &nbsp;/&nbsp; Last flag wins</span><a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">Flag artwork ↗</a></footer>
+</main>
+<dialog id="flag-dialog" class="flag-dialog" aria-labelledby="flag-dialog-title"><div class="dialog-heading"><div><div class="eyebrow">YOUR WORLD. YOUR RULES.</div><h2 id="flag-dialog-title">Build your lineup</h2><p>All 250 countries and territories. Pick at least two.</p></div><button id="close-flags" class="icon-button" aria-label="Close flag selection">×</button></div><div class="search-wrap"><svg viewBox="0 0 20 20"><circle cx="8" cy="8" r="5"/><path d="m12 12 5 5"/></svg><input id="country-search" type="search" placeholder="Search countries or country codes…" aria-label="Search countries"></div><div class="region-tabs" id="region-tabs"><button class="active" data-region="All">All</button><button data-region="Africa">Africa</button><button data-region="Asia">Asia</button><button data-region="Europe">Europe</button><button data-region="Americas">Americas</button><button data-region="Oceania">Oceania</button><button data-region="Other">Other</button></div><div class="selection-toolbar"><span><b id="draft-count">16</b> selected <span id="filter-count"></span></span><div><button id="select-visible">Select visible</button><button id="select-all">Select all</button><button id="clear-selection">Clear</button></div></div><div class="country-grid" id="country-grid"></div><div class="list-tools"><label for="custom-list">Or paste a custom list <span>country names or two-letter codes, separated by commas</span></label><div><input id="custom-list" placeholder="India, Brazil, Japan, us, gb" aria-label="Custom list of flags"><button id="import-list">Add list</button></div><p id="import-message" role="status"></p></div><div class="dialog-footer"><span id="selection-error" role="status">Your lineup is saved on this device.</span><button id="apply-selection" class="start-button">Use this lineup <span>→</span></button></div></dialog>
+<dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title"><button id="close-help" class="icon-button" aria-label="Close instructions">×</button><span class="eyebrow">WELCOME TO THE PLAYGROUND</span><h2 id="help-title">Eight rounds. One champion.</h2><p>Select <b>Whole world · 250</b> to automatically play 250 → 128 → 64 → 32 → 16 → 8 → 4 → 2 → champion. Each round lasts <b>35–50 seconds of active play</b>, followed by a short automatic transition.</p><p>Gap exits are paced across the countdown. At the buzzer, flags closest to the center fill any remaining qualifying places. Qualifiers keep their countries in the next round.</p><p>Collisions are perfectly elastic, with no friction, air drag, speed cap, or collision damage. Gravity can change speed; moving gap edges can transfer energy. Flags keep bouncing until eliminated.</p><p>Each flag has a spring-connected particle mesh that flexes on impact. Turn on <b>Show particle mesh</b> to see it. Smaller lineups play a single escape battle.</p><p>The tournament pace stays at 1×. Pause also freezes the round countdown and automatic transitions. Hover or tap a flag to see its country.</p><div class="help-shortcuts"><kbd>SPACE</kbd> Start / pause <kbd>R</kbd> Reset <kbd>F</kbd> Flags</div></dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+</body></html>
