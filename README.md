@@ -12,18 +12,22 @@ For a local browser preview, run `python -m http.server 8765 --bind 127.0.0.1 --
 
 ## Controls
 
-- Start / pause: Space, or the main button.
-- New arena: R. Choose flags: F.
+- Pause / resume: Space, or the main button. Stop campaign: S, or the Stop button.
+- Restart campaign: R. Choose flags: F.
 - Search country names or two-letter codes, filter by continent, or paste a comma-separated custom list.
 - Lineup choices are remembered on this device when browser storage is available.
-- Selecting all 250 flags starts the world tournament automatically; subsequent rounds also start automatically.
-- Gravity and particle display can change during play. Collision elasticity is locked at 100%, with no collision damage. Single battles allow speed changes; tournaments use 1× so round countdowns stay meaningful.
+- Every lineup starts automatically. Qualifiers advance, and the full selected lineup returns after each champion. Campaigns repeat until paused or stopped.
+- Gravity, speed, and particle display can change during play. Collision elasticity is locked at 100%, with no collision damage.
 
-## World tournament
+## Endless campaigns
 
-The stages are **250 → 128 → 64 → 32 → 16 → 8 → 4 → 2 → champion**. Each of the eight rounds gets a random integer duration of **35–50 seconds of active simulation**. A 2.5-second intermission advances qualifiers automatically. Pausing freezes both countdowns and intermissions; switching away from the page pauses play.
+The world stages are **250 → 128 → 64 → 32 → 16 → 8 → 4 → 2 → champion**. Every custom or preset lineup from 2–250 flags uses the same descending power-of-two bracket: for example, five flags play **5 → 4 → 2 → champion**. There is **no round time limit or ranking cutoff**. Only physical gate escapes eliminate flags; each round ends when the exact qualifying count remains.
 
-The exit gap opens in paced windows after an eight-second warmup, preventing early rounds from eliminating too many flags at once. At the buzzer, the flags closest to the arena center fill any remaining qualifying places. The next round uses exactly those survivors, and the final selects one champion. A bracket, qualifying target, countdown, and progress bar show the tournament state. Custom lineups below 250 play a single escape battle.
+Gates arm after five seconds. After a random 8–13 seconds, the arena opens two to four rotating gates; random waves change the extra gates every 6–14 seconds. Gate widths vary, and a quiet spell gradually widens real escape routes without removing flags. An already exiting flag continues out even if its gate closes. A target guard prevents simultaneous escapes from eliminating too many qualifiers.
+
+Qualifiers advance after a three-second intermission. After a five-second champion celebration, the original selected countries return with fresh positions, velocities, and gate waves. Pause and Stop freeze combat and all automatic transitions until Resume. Changing the lineup or restarting explicitly begins a fresh campaign. Background tabs continue through a fallback scheduler, subject to browser throttling; closing the page ends the session.
+
+The battlefield interface shows the campaign number, bracket, elimination goal, gate wave, open gate count, and elapsed round time. The progress bar tracks actual eliminations. The activity feed retains its most recent 80 events so endless play does not grow the page indefinitely.
 
 ## Simulation
 

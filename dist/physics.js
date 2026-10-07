@@ -8,7 +8,7 @@
   class BattlePhysics {
     constructor(options = {}) {
       this.center = 360; this.radius = 290; this.gapWidth = .6;
-      this.options = {gravity:210, restitution:1, damage:false, elastic:true, particles:true, ...options};
+      this.options = {gravity:210, restitution:1, damage:false, elastic:true, particles:true, randomGates:true, ...options};
       this.onEliminate = () => {}; this.onImpact = () => {}; this.onFinish = () => {}; this.onRoundFinish = () => {};
       this.bodies = []; this.debris = []; this.time = 0; this.gapAngle = Math.PI/2;
       this.impacts = 0; this.finished = false; this.started = false;
@@ -16,6 +16,9 @@
     reset(countries, random = Math.random) {
       this.time = 0; this.gapAngle = Math.PI/2; this.debris = []; this.impacts = 0;
       this.finished = false; this.started = false; this.random = random; this.round = null; this.aliveCount = countries.length;
+      this.lastElimination = 0; this.gateWave = 0; this.nextGateChange = 8+random()*5;
+      this.gateSlots = [{offset:0,width:1,active:true}];
+      for(let i=1;i<4;i++)this.gateSlots.push({offset:i*TAU/4+(random()-.5)*.18,width:.8+random()*.3,active:false});
       const n = countries.length, r = clamp(79 / Math.sqrt(n), 10, 24);
       this.bodies = countries.map((country, i) => {
         const theta = i * 2.399963229728653 + random()*.08;
@@ -29,28 +32,36 @@
       });
       return this.bodies;
     }
-    setRound(target, duration) {
-      if(!Number.isInteger(target)||target<1||target>=this.bodies.length||!Number.isFinite(duration)||duration<35||duration>50)throw new Error('Invalid timed qualification round.');
-      this.round={target,duration,startCount:this.bodies.length};
+    setRound(target) {
+      if(!Number.isInteger(target)||target<1||target>=this.bodies.length)throw new Error('Invalid elimination target.');
+      this.round={target,startCount:this.bodies.length};
       this.options.elastic=true;this.options.restitution=1;this.options.damage=false;
     }
     get restitution(){return this.options.elastic?1:this.options.restitution;}
     exitOpen() {
-      if(!this.round)return true;
-      // Pace exits across the countdown, reserving enough places for the next stage.
-      const {target,duration,startCount}=this.round;
-      const allowed=Math.floor((startCount-target)*clamp((this.time-8)/(duration-8),0,1));
-      return startCount-this.aliveCount<allowed&&this.aliveCount>target;
+      return !this.round||(this.time>=5&&this.aliveCount>this.round.target);
+    }
+    updateGates() {
+      if(!this.options.randomGates||this.time<this.nextGateChange)return;
+      this.gateWave++;
+      // Keep one rotating escape route; each wave randomly opens 1–3 more.
+      const slots=[1,2,3];for(let i=2;i>0;i--){const j=Math.floor(this.random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}
+      const count=1+Math.floor(this.random()*3);
+      for(let i=1;i<4;i++)this.gateSlots[i].active=slots.slice(0,count).includes(i);
+      this.nextGateChange=this.time+6+this.random()*8;
+    }
+    getGates() {
+      if(this.gapWidth<=0)return [];
+      const slots=this.options.randomGates?this.gateSlots:[{offset:0,width:1,active:true}];
+      // Widen real exits after a quiet spell; never remove a flag by timeout.
+      const widening=this.options.randomGates?clamp((this.time-this.lastElimination-25)/80,0,.4):0;
+      return slots.filter(g=>g.active).map(g=>({angle:this.gapAngle+g.offset,width:this.gapWidth*g.width+widening}));
     }
     finishRound() {
-      // A timed qualifier guarantees the advertised length. At the buzzer,
-      // center-most flags fill any places not decided by physical gap exits.
-      const contenders=this.bodies.filter(b=>!b.dead).sort((a,b)=>
-        Math.hypot(a.x-this.center,a.y-this.center)-Math.hypot(b.x-this.center,b.y-this.center)||a.id-b.id);
-      const survivors=contenders.slice(0,this.round.target);
-      for(const b of contenders.slice(this.round.target))this.eliminate(b,'Round cutoff · outside top '+this.round.target);
+      if(!this.round||this.finished||this.aliveCount!==this.round.target)return;
+      const survivors=this.bodies.filter(b=>!b.dead);
       this.finished=true;
-      this.onRoundFinish({survivors,startCount:this.round.startCount,target:this.round.target,duration:this.round.duration,elapsed:this.time});
+      this.onRoundFinish({survivors,startCount:this.round.startCount,target:this.round.target,eliminations:this.round.startCount-this.aliveCount,elapsed:this.time});
     }
     makeMesh(b) {
       const c=Math.cos(b.angle), s=Math.sin(b.angle);
@@ -67,7 +78,7 @@
     }
     isGap(angle, bodyRadius=0) {
       const margin=Math.asin(clamp(bodyRadius/this.radius,0,.95));
-      return Math.abs(angleDiff(angle,this.gapAngle))<this.gapWidth/2-margin;
+      return this.getGates().some(g=>Math.abs(angleDiff(angle,g.angle))<g.width/2-margin);
     }
     step(dt=DT) {
       if(this.finished){this.updateDebris(dt);return;}
@@ -77,6 +88,7 @@
     }
     stepOnce(dt) {
       this.time+=dt; this.gapAngle=(Math.PI/2+this.time*.34)%TAU;
+      this.updateGates();
       const alive=this.bodies.filter(b=>!b.dead);
       for(const b of alive) {
         b.vy+=this.options.gravity*dt;
@@ -102,7 +114,7 @@
       for(const b of alive){if(b.dead)continue;this.collideWall(b);if(this.options.damage&&!this.options.elastic&&b.hp<=0){this.eliminate(b,'Knocked out');continue;}this.updateMesh(b,dt);}
       this.updateDebris(dt);
       const survivors=this.bodies.filter(b=>!b.dead);
-      if(this.started&&this.round){if(this.time+1e-8>=this.round.duration)this.finishRound();}
+      if(this.started&&this.round){if(this.aliveCount===this.round.target)this.finishRound();}
       else if(this.started&&survivors.length<=1){this.finished=true;this.onFinish(survivors[0]||null);}
     }
     collidePair(a,b) {
@@ -130,8 +142,12 @@
     collideWall(b) {
       if(b.dead)return;
       const dx=b.x-this.center,dy=b.y-this.center,dist=Math.hypot(dx,dy),angle=Math.atan2(dy,dx);
+      if(b.exiting&&dist<this.radius-b.r)b.exiting=false;
       if(dist+b.r>=this.radius) {
-        if(this.isGap(angle,b.r)&&this.exitOpen()) {if(dist>this.radius+b.r+2)this.eliminate(b,'Escaped through the gap');}
+        if(this.exitOpen()&&(b.exiting||this.isGap(angle,b.r))) {
+          if(dist>this.radius+b.r+2)this.eliminate(b,'Escaped through an open gate');
+          else if(dist>this.radius)b.exiting=true;
+        }
         else if(dist>0) {
           const nx=dx/dist,ny=dy/dist;
           b.x=this.center+nx*(this.radius-b.r);b.y=this.center+ny*(this.radius-b.r);
@@ -143,8 +159,9 @@
       }
       // Rounded gap endpoints also collide: flags cannot tunnel through the lips.
       if(!this.exitOpen()||this.gapWidth<=0)return;
-      for(const edge of [-1,1]) {
-        const a=this.gapAngle+edge*this.gapWidth/2,ex=this.center+Math.cos(a)*this.radius,ey=this.center+Math.sin(a)*this.radius;
+      if(b.exiting)return;
+      for(const gate of this.getGates())for(const edge of [-1,1]) {
+        const a=gate.angle+edge*gate.width/2,ex=this.center+Math.cos(a)*this.radius,ey=this.center+Math.sin(a)*this.radius;
         const xx=b.x-ex,yy=b.y-ey,d=Math.hypot(xx,yy),contact=b.r+2;
         if(d>=contact||d<1e-6)continue;
         const nx=xx/d,ny=yy/d;b.x+=nx*(contact-d);b.y+=ny*(contact-d);
@@ -169,7 +186,7 @@
       }
       for(const p of b.mesh) {
         const dx=p.x-this.center,dy=p.y-this.center,d=Math.hypot(dx,dy);
-        if(d>this.radius-1&&(!this.isGap(Math.atan2(dy,dx))||!this.exitOpen())) {
+        if(!b.exiting&&d>this.radius-1&&(!this.isGap(Math.atan2(dy,dx))||!this.exitOpen())) {
           const nx=dx/d,ny=dy/d;p.x=this.center+nx*(this.radius-1);p.y=this.center+ny*(this.radius-1);
           const vn=p.vx*nx+p.vy*ny;if(vn>0){p.vx-=(1+this.restitution)*vn*nx;p.vy-=(1+this.restitution)*vn*ny;}
         }
@@ -184,7 +201,8 @@
       if(this.debris.length>450)this.debris.splice(0,this.debris.length-450);
     }
     eliminate(b,reason) {
-      if(b.dead)return;b.dead=true;this.aliveCount--;b.hp=Math.max(0,b.hp);
+      if(b.dead||(this.round&&this.aliveCount<=this.round.target))return;
+      b.dead=true;this.aliveCount--;this.lastElimination=this.time;b.hp=Math.max(0,b.hp);
       if(this.options.particles)for(const p of b.mesh){this.debris.push({x:p.x,y:p.y,vx:p.vx+(this.random()-.5)*90,vy:p.vy+(this.random()-.5)*90,life:.8+this.random()*.5,maxLife:1.3,size:b.r/4,color:'#c7f36b',country:b.country,u:p.u,v:p.v,angle:b.angle});}
       if(this.debris.length>900)this.debris.splice(0,this.debris.length-900);
       this.onEliminate(b,reason);
@@ -196,18 +214,46 @@
   }
   class WorldTournament {
     constructor(countries,random=Math.random) {
-      if(countries.length!==250||new Set(countries.map(c=>c.code)).size!==250)throw new Error('A world tournament needs 250 unique flags.');
-      this.stages=[250,128,64,32,16,8,4,2];this.contenders=countries.slice();this.random=random;
-      this.index=0;this.finished=false;this.history=[];this.durations=this.stages.map(()=>35+Math.floor(random()*16));
+      if(countries.length<2||countries.length>250||new Set(countries.map(c=>c.code)).size!==countries.length)throw new Error('Choose 2–250 unique flags.');
+      this.stages=[countries.length];
+      for(let n=2**Math.floor(Math.log2(countries.length-1));n>=2;n/=2)this.stages.push(n);
+      this.contenders=countries.slice();this.random=random;
+      this.index=0;this.finished=false;this.history=[];
     }
     get target(){return this.stages[this.index+1]||1;}
-    prepare(engine){engine.reset(this.contenders,this.random);engine.setRound(this.target,this.durations[this.index]);}
+    prepare(engine){engine.reset(this.contenders,this.random);engine.setRound(this.target);}
     complete(result){
-      if(this.finished||result.startCount!==this.contenders.length||result.duration!==this.durations[this.index]||result.elapsed+1e-8<result.duration||result.target!==this.target||result.survivors.length!==this.target||new Set(result.survivors.map(b=>b.country.code)).size!==this.target||result.survivors.some(b=>b.dead||!this.contenders.some(c=>c.code===b.country.code)))throw new Error('Invalid qualification results.');
+      if(this.finished||result.startCount!==this.contenders.length||!Number.isFinite(result.elapsed)||result.elapsed<0||result.eliminations!==this.contenders.length-this.target||result.target!==this.target||result.survivors.length!==this.target||new Set(result.survivors.map(b=>b.country.code)).size!==this.target||result.survivors.some(b=>b.dead||!this.contenders.some(c=>c.code===b.country.code)))throw new Error('Invalid qualification results.');
       this.history.push({stage:this.contenders.length,target:this.target,duration:result.elapsed,qualifiers:result.survivors.map(b=>b.country.code)});
       this.contenders=result.survivors.map(b=>b.country);if(this.target===1)this.finished=true;else this.index++;
     }
   }
+  // Animation and UI share this controller so pause/stop also freeze transitions.
+  class EndlessBattle {
+    constructor(engine,lineup,random=Math.random) {
+      this.engine=engine;this.random=random;this.onChange=()=>{};this.onChampion=()=>{};
+      engine.onRoundFinish=result=>this.complete(result);this.reset(lineup);
+    }
+    reset(lineup=this.lineup) {
+      this.lineup=lineup.slice();this.cycle=1;this.running=false;this.remaining=0;this.phase='ready';this.resumePhase='running';
+      this.tournament=new WorldTournament(this.lineup,this.random);this.tournament.prepare(this.engine);this.onChange();
+    }
+    start(){if(this.running)return;this.running=true;this.phase=this.remaining>0?this.resumePhase:'running';this.engine.started=true;this.onChange();}
+    pause(){if(!this.running)return;this.resumePhase=this.phase;this.running=false;this.phase='paused';this.onChange();}
+    stop(){if(this.running)this.resumePhase=this.phase;this.running=false;this.phase='stopped';this.onChange();}
+    complete(result) {
+      this.tournament.complete(result);this.remaining=this.tournament.finished?5:3;
+      this.phase=this.tournament.finished?'champion':'intermission';this.resumePhase=this.phase;
+      if(this.tournament.finished)this.onChampion(result.survivors[0]);this.onChange();
+    }
+    tick(dt) {
+      if(!this.running||this.remaining<=0)return;
+      this.remaining=Math.max(0,this.remaining-Math.max(0,dt));if(this.remaining>0)return;
+      if(this.tournament.finished){this.cycle++;this.tournament=new WorldTournament(this.lineup,this.random);}
+      this.tournament.prepare(this.engine);this.engine.started=true;this.phase='running';this.resumePhase='running';this.onChange();
+    }
+  }
+  BattlePhysics.EndlessBattle=EndlessBattle;
   BattlePhysics.WorldTournament=WorldTournament;
   BattlePhysics.DT=DT;BattlePhysics.angleDiff=angleDiff;
   if(typeof module!=='undefined'&&module.exports)module.exports=BattlePhysics;

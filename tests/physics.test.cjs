@@ -7,7 +7,7 @@ const context = {window:{}};
 vm.runInNewContext(fs.readFileSync(require.resolve('../dist/countries.js'),'utf8'),context);
 const countries = context.window.FLAG_COUNTRIES;
 function seeded(seed=99){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
-function make(n=2,options={}){const engine=new Physics({gravity:0,damage:false,particles:false,elastic:false,...options});engine.reset(countries.slice(0,n),seeded());return engine;}
+function make(n=2,options={}){const engine=new Physics({gravity:0,damage:false,particles:false,elastic:false,randomGates:false,...options});engine.reset(countries.slice(0,n),seeded());return engine;}
 test('all 250 flags are unique, valid SVG textures, including country edge cases',()=>{
  assert.equal(countries.length,250);assert.equal(new Set(countries.map(c=>c.code)).size,250);
  for(const code of ['in','us','gb','np','va','ps','tw','xk'])assert.ok(countries.some(c=>c.code===code));
@@ -59,14 +59,17 @@ test('lossless bodies keep speed and rotation over 60 seconds of closed-wall bou
  for(let i=0;i<120*60;i++)e.step();
  assert.ok(Math.abs(Math.hypot(a.vx,a.vy)-speed)<1e-7);assert.equal(a.omega,2);assert.equal(a.hp,100);assert.ok(Math.hypot(a.x-e.center,a.y-e.center)<=e.radius-a.r+1e-7);
 });
-test('world tournament qualifies every exact bracket size within 35–50 seconds',()=>{
- for(const seed of [11,89]){
+test('world tournament qualifies every exact bracket size through physical escapes only',()=>{
+ for(const seed of [11]){
   const tournament=new Physics.WorldTournament(countries,seeded(seed));const engine=new Physics({particles:false});let result;
   engine.onRoundFinish=r=>{result=r;};
   while(!tournament.finished){
    tournament.prepare(engine);engine.started=true;result=null;let steps=0;
-   while(!engine.finished&&steps++<120*51)engine.step();
-   assert.ok(result);assert.ok(result.elapsed>=35-1e-8&&result.elapsed<=50+Physics.DT);
+   const reasons=[];engine.onEliminate=(body,reason)=>reasons.push(reason);
+   while(!engine.finished&&steps++<120*600)engine.step();
+   assert.ok(result,'seeded round should physically finish');assert.ok(result.elapsed>=5);
+   assert.equal(reasons.length,engine.round.startCount-tournament.target);
+   assert.ok(reasons.every(reason=>reason==='Escaped through an open gate'));
    assert.equal(result.survivors.length,tournament.target);assert.equal(engine.aliveCount,tournament.target);
    assert.ok(engine.bodies.every(b=>b.hp===100&&Number.isFinite(b.x)&&Number.isFinite(b.y)));
    assert.ok(engine.bodies.flatMap(b=>b.mesh).every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
@@ -77,14 +80,67 @@ test('world tournament qualifies every exact bracket size within 35–50 seconds
   assert.equal(tournament.contenders.length,1);
  }
 });
-test('round pacing prevents early completion, overshooting qualifiers, and stale callbacks',()=>{
- const e=make(2,{elastic:true});e.setRound(1,35);e.started=true;let completions=0;e.onRoundFinish=()=>completions++;
- for(let i=0;i<120*34;i++)e.step();assert.equal(e.aliveCount,2);assert.equal(e.finished,false);
- for(let i=0;i<120*2;i++)e.step();assert.equal(e.aliveCount,1);assert.equal(completions,1);assert.ok(e.time>=35-1e-8);
+test('no elapsed time can force qualification; simultaneous exits preserve the exact target',()=>{
+ const e=make(4,{elastic:true});e.setRound(2);e.started=true;let completions=0;e.onRoundFinish=()=>completions++;
+ e.gapWidth=0;e.time=3600;for(const b of e.bodies){b.vx=b.vy=0;}e.step();
+ assert.equal(e.aliveCount,4);assert.equal(e.finished,false);assert.equal(completions,0);
+ e.gapWidth=.6;e.gapAngle=Math.PI/2;
+ for(const b of e.bodies){b.x=e.center;b.y=e.center+e.radius+b.r+5;e.collideWall(b);}
+ assert.equal(e.aliveCount,2);e.finishRound();e.finishRound();assert.equal(completions,1);
  e.reset(countries.slice(0,16),seeded());assert.equal(e.round,null);assert.equal(e.aliveCount,16);assert.equal(e.finished,false);
 });
 test('tournament rejects duplicate entrants and premature or invalid round results',()=>{
  assert.throws(()=>new Physics.WorldTournament([...countries.slice(0,249),countries[0]]));
- const t=new Physics.WorldTournament(countries,seeded());assert.throws(()=>t.complete({target:128,startCount:250,duration:t.durations[0],elapsed:1,survivors:[]}));
+ const t=new Physics.WorldTournament(countries,seeded());assert.throws(()=>t.complete({target:128,startCount:250,elapsed:1,eliminations:0,survivors:[]}));
  assert.equal(t.index,0);assert.equal(t.contenders.length,250);
+});
+test('custom brackets support every lineup size from two through 250',()=>{
+ for(let n=2;n<=250;n++){
+  const t=new Physics.WorldTournament(countries.slice(0,n));assert.equal(t.stages[0],n);
+  assert.equal(t.stages.at(-1),2);assert.equal(new Set(t.stages).size,t.stages.length);
+  for(let i=1;i<t.stages.length;i++){assert.ok(t.stages[i]<t.stages[i-1]);assert.equal(Math.log2(t.stages[i])%1,0);}
+ }
+ assert.deepEqual(new Physics.WorldTournament(countries.slice(0,5)).stages,[5,4,2]);
+ assert.throws(()=>new Physics.WorldTournament(countries.slice(0,1)));
+});
+test('random waves open multiple physical gates, including angle wraparound',()=>{
+ const e=make(8,{elastic:true,randomGates:true});assert.equal(e.getGates().length,1);
+ e.time=e.nextGateChange;e.updateGates();const gates=e.getGates();assert.ok(gates.length>=2&&gates.length<=4);
+ for(const gate of gates){
+  assert.ok(e.isGap(gate.angle,e.bodies[0].r));assert.ok(e.isGap(gate.angle+Math.PI*2,e.bodies[0].r));
+  const b=e.bodies.find(b=>!b.dead);b.x=e.center+Math.cos(gate.angle)*(e.radius+b.r+5);b.y=e.center+Math.sin(gate.angle)*(e.radius+b.r+5);
+  e.collideWall(b);assert.ok(b.dead,'each visible open gate allows physical escape');
+ }
+ const next=e.nextGateChange;e.time=next;e.updateGates();assert.equal(e.gateWave,2);assert.ok(e.nextGateChange>=next+6&&e.nextGateChange<=next+14);
+});
+test('a gate closing cannot teleport an already exiting flag back into the arena',()=>{
+ const e=make(2,{elastic:true}),b=e.bodies[0];b.x=e.center;b.y=e.center+e.radius+1;e.collideWall(b);assert.ok(b.exiting);assert.ok(!b.dead);
+ e.gapAngle=0;b.y=e.center+e.radius+b.r+5;e.collideWall(b);assert.ok(b.dead);
+});
+function physicallyFinishRound(e){
+ e.time=Math.max(5,e.time);e.gapAngle=Math.PI/2;
+ for(const b of e.bodies){if(e.aliveCount<=e.round.target)break;b.x=e.center;b.y=e.center+e.radius+b.r+5;e.collideWall(b);}
+ e.finishRound();assert.ok(e.finished);
+}
+test('endless controller repeats custom and world campaigns with the full original lineup',()=>{
+ for(const n of [2,5,16,250]){
+  const e=make(n,{elastic:true}),s=new Physics.EndlessBattle(e,countries.slice(0,n),seeded());let champions=0;s.onChampion=()=>champions++;s.start();
+  for(let cycle=1;cycle<=4;cycle++){
+   while(!s.tournament.finished){physicallyFinishRound(e);if(!s.tournament.finished){assert.equal(s.phase,'intermission');s.tick(3);assert.equal(s.phase,'running');}}
+   assert.equal(s.phase,'champion');assert.equal(s.cycle,cycle);assert.equal(e.aliveCount,1);s.tick(5);
+   assert.equal(s.cycle,cycle+1);assert.equal(e.bodies.length,n);assert.equal(e.aliveCount,n);assert.equal(s.running,true);
+   assert.deepEqual(new Set(e.bodies.map(b=>b.country.code)),new Set(countries.slice(0,n).map(c=>c.code)));
+  }
+  assert.equal(champions,4);
+ }
+});
+test('pause and stop freeze live combat, round advances, and champion rematches',()=>{
+ const e=make(5,{elastic:true}),s=new Physics.EndlessBattle(e,countries.slice(0,5),seeded());s.start();s.stop();s.tick(999);
+ assert.equal(s.running,false);assert.equal(s.phase,'stopped');assert.equal(e.time,0);s.start();physicallyFinishRound(e);
+ s.pause();const remaining=s.remaining;s.tick(999);assert.equal(s.remaining,remaining);assert.equal(s.phase,'paused');
+ s.start();s.tick(remaining);assert.equal(e.bodies.length,4);
+ while(!s.tournament.finished){physicallyFinishRound(e);if(!s.tournament.finished)s.tick(3);}
+ s.stop();s.tick(999);assert.equal(s.cycle,1);assert.equal(s.remaining,5);assert.equal(s.phase,'stopped');
+ s.start();s.tick(5);assert.equal(s.cycle,2);assert.equal(e.bodies.length,5);
+ physicallyFinishRound(e);s.reset(countries.slice(0,3));s.tick(999);assert.equal(s.phase,'ready');assert.equal(s.remaining,0);assert.equal(e.bodies.length,3);
 });

@@ -1,13 +1,13 @@
 # Verification
 
-- Fourteen Node physics tests pass. These cover flag dataset integrity, elastic momentum transfer, restitution, wall response, gap clearance, particle mesh stability, frame-rate consistency, whole-world battle completion, and particle/reset behavior, plus oblique elastic energy conservation, long-running wall bounce speed preservation, complete tournament brackets, minimum round duration/qualifier limits, and invalid tournament inputs.
-- Two seeded tournaments completed all eight stages with exact survivor counts 128, 64, 32, 16, 8, 4, 2, and 1. Every round completed within 35–50 seconds (allowing at most one integration step of rounding). Surviving and eliminated bodies retained 100 HP, and all body/mesh coordinates stayed finite.
-- In the browser, selecting 250 flags started play automatically. The first 47-second round advanced to 128 qualifiers and began round two automatically. Locked elasticity, locked tournament pace, bracket highlights, countdown, and cutoff explanations appeared correctly.
-- Browser checks confirm a custom pasted lineup, invalid-name feedback, country search, applying a lineup, start/pause, and loading all 250 flags.
-- A complete 250-flag escape-only battle was observed in the browser, with a winner and elimination feed.
-- Vector flags are cached into textures before rendering. Larger battles use fewer mesh cells to keep controls responsive.
-- Browser console reported no errors after the texture optimization.
-- All three optional page tools registered. Valid configure/start/read actions updated the shared UI state; invalid country codes failed intentionally.
-- The offline export embeds all code and 250 SVG flag assets and includes their MIT license.
-- The tournament version was successfully published privately at https://flag-battle-royale-physics.gamingslayer20.chatgpt.site. Deployment success was confirmed by the hosting service.
-- Vercel production deployment is Ready at https://flag-battle-royale-bay.vercel.app. Unauthenticated requests for `/`, `style.css`, `physics.js`, `app.js`, and `countries.js` returned HTTP 200, and each response matched its tested source file by SHA-256. The GitHub repository is connected for automatic deployments from `main`.
+- Nineteen Node tests pass, covering the 250-flag dataset, collision impulses, energy conservation, wall and gate contacts, cloth stability, frame-rate consistency, and complete physical elimination brackets.
+- A seeded world tournament completed the exact survivor targets 128, 64, 32, 16, 8, 4, 2, and 1. Every elimination came from a physical gate escape. Body and mesh coordinates remained finite, and all flags retained 100 HP.
+- Closed gates with the simulation clock beyond one hour did not force any elimination or qualification. Simultaneous escapes could not overshoot the qualifying target, and each round completion fired once.
+- Bracket construction was checked for every lineup size from 2 through 250. Repeated campaign tests covered 2, 5, 16, and 250 flags across four complete cycles each, restoring the original selected countries every time.
+- Controller tests cover pause and stop during combat, intermissions, and champion celebrations, plus resume and changing lineups with pending transitions.
+- Random gate tests verify two to four physical exits after the initial wave, wraparound angles, scheduled wave changes, and safe escape when a gate closes behind an exiting flag.
+- Browser checks observed the world tournament advance to rounds two and three through actual escapes. Pasting India and Brazil started a two-flag campaign automatically, and it repeated into campaign two. Stop froze its champion transition and elapsed clock across subsequent observations.
+- The battlefield design was visually checked on desktop and at a phone breakpoint, with no horizontal overflow. Browser console reported no errors.
+- The elimination feed is capped at 80 events. Flag textures are cached; larger lineups use fewer cloth nodes. Campaign histories and debris are bounded.
+- The offline export embeds the updated game, all 250 SVG flag assets, and their MIT license.
+- Production address: https://flag-battle-royale-bay.vercel.app. The repository is connected to Vercel for automatic deployments from `main`. The earlier Sites edition remains a separate deployment.
